@@ -1,5 +1,3 @@
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
@@ -18,15 +16,9 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import com.filenet.api.collection.ContentElementList;
 import com.filenet.api.collection.DocumentSet;
-import com.filenet.api.collection.FolderSet;
-import com.filenet.api.constants.AutoClassify;
-import com.filenet.api.constants.AutoUniqueName;
-import com.filenet.api.constants.CheckinType;
 import com.filenet.api.constants.ClassNames;
-import com.filenet.api.constants.DefineSecurityParentage;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.constants.RefreshMode;
-import com.filenet.api.constants.ReservationType;
 import com.filenet.api.core.Connection;
 import com.filenet.api.core.ContentTransfer;
 import com.filenet.api.core.Document;
@@ -34,9 +26,7 @@ import com.filenet.api.core.Domain;
 import com.filenet.api.core.Factory;
 import com.filenet.api.core.Folder;
 import com.filenet.api.core.ObjectStore;
-import com.filenet.api.core.ReferentialContainmentRelationship;
 import com.filenet.api.property.FilterElement;
-import com.filenet.api.property.Properties;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.UserContext;
 import com.ibm.casemgmt.api.Case;
@@ -110,18 +100,34 @@ public class TestClass {
 
 	public void createBulkCase(ObjectStore targetOS, Document doc) throws IOException {
 		ContentElementList docContentList = doc.get_ContentElements();
+		int caseCount = 0;
 		Iterator iter = docContentList.iterator();
 		while (iter.hasNext()) {
 			ContentTransfer ct = (ContentTransfer) iter.next();
 			InputStream stream = ct.accessContentStream();
 			int rowLastCell = 0;
 			HashMap<Integer, String> headers = new HashMap<Integer, String>();
+			HashMap<String, String> propDescMap = new HashMap<String, String>();
 			HashMap<Integer, HashMap<String, Object>> caseProperties = new HashMap<Integer, HashMap<String, Object>>();
 			ObjectStoreReference targetOsRef = new ObjectStoreReference(targetOS);
 			CaseType caseType = CaseType.fetchInstance(targetOsRef, doc.get_Name());
 			XSSFWorkbook workbook = new XSSFWorkbook(stream);
 			XSSFSheet sheet = workbook.getSheetAt(0);
+			XSSFSheet sheet1 = workbook.getSheetAt(1);
 			Iterator<Row> rowIterator = sheet.iterator();
+			Iterator<Row> rowIterator1 = sheet1.iterator();
+			while (rowIterator1.hasNext()) {
+				Row row = rowIterator1.next();
+				if (row.getRowNum() > 0) {
+					String key = null, value = null;
+					key = row.getCell(0).getStringCellValue();
+					value = row.getCell(1).getStringCellValue();
+					if (key != null && value != null) {
+						propDescMap.put(key, value);
+					}
+				}
+			}
+			System.out.println("Map: " + propDescMap);
 			String headerValue;
 			int rowNum = 0;
 			if (rowIterator.hasNext()) {
@@ -168,11 +174,11 @@ public class TestClass {
 								String symName = headers.get(colNum).replace("dateField", "");
 								if (HSSFDateUtil.isCellDateFormatted(cell)) {
 									Date date = cell.getDateCellValue();
-									rowValue.put(symName, date);
+									rowValue.put(propDescMap.get(symName), date);
 									colNum++;
 								}
 							} else {
-								rowValue.put(headers.get(colNum), getCharValue(cell));
+								rowValue.put(propDescMap.get(headers.get(colNum)), getCharValue(cell));
 								colNum++;
 							}
 						}
@@ -182,7 +188,6 @@ public class TestClass {
 					}
 				}
 				caseProperties.put(++rowNum, rowValue);
-
 			}
 			System.out.println(caseProperties);
 			Iterator<Entry<Integer, HashMap<String, Object>>> caseProperty = caseProperties.entrySet().iterator();
@@ -203,6 +208,10 @@ public class TestClass {
 					pendingCase.save(RefreshMode.REFRESH, null, ModificationIntent.MODIFY);
 					caseId = pendingCase.getId().toString();
 					System.out.println("Case_ID: " + caseId);
+					if (!caseId.isEmpty()) {
+						caseCount+=1;
+						System.out.println("CaseCount: "+caseCount);
+					}
 				} catch (Exception e) {
 					System.out.println(e);
 					e.printStackTrace();
