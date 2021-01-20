@@ -1,5 +1,8 @@
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -16,7 +19,12 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import com.filenet.api.collection.ContentElementList;
 import com.filenet.api.collection.DocumentSet;
+import com.filenet.api.collection.FolderSet;
+import com.filenet.api.constants.AutoClassify;
+import com.filenet.api.constants.AutoUniqueName;
+import com.filenet.api.constants.CheckinType;
 import com.filenet.api.constants.ClassNames;
+import com.filenet.api.constants.DefineSecurityParentage;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.constants.RefreshMode;
 import com.filenet.api.core.Connection;
@@ -26,7 +34,9 @@ import com.filenet.api.core.Domain;
 import com.filenet.api.core.Factory;
 import com.filenet.api.core.Folder;
 import com.filenet.api.core.ObjectStore;
+import com.filenet.api.core.ReferentialContainmentRelationship;
 import com.filenet.api.property.FilterElement;
+import com.filenet.api.property.Properties;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.UserContext;
 import com.ibm.casemgmt.api.Case;
@@ -48,7 +58,6 @@ public class TestClass {
 	int columnCount = 1;
 
 	public void fetchDocument() {
-
 		try {
 			Connection conn = Factory.Connection.getConnection(uri);
 			Subject subject = UserContext.createSubject(conn, username, password, "FileNetP8WSI");
@@ -127,7 +136,6 @@ public class TestClass {
 					}
 				}
 			}
-			System.out.println("Map: " + propDescMap);
 			String headerValue;
 			int rowNum = 0;
 			if (rowIterator.hasNext()) {
@@ -160,10 +168,10 @@ public class TestClass {
 				}
 			}
 			while (rowIterator.hasNext()) {
+				int validRowCount = 0;
 				HashMap<String, Object> rowValue = new HashMap<String, Object>();
 				Row row = rowIterator.next();
 				int colNum = 0;
-
 				for (int i = 0; i < row.getLastCellNum(); i++) {
 					Cell cell = row.getCell(i, Row.CREATE_NULL_AS_BLANK);
 					try {
@@ -181,15 +189,21 @@ public class TestClass {
 								rowValue.put(propDescMap.get(headers.get(colNum)), getCharValue(cell));
 								colNum++;
 							}
+							validRowCount += 1;
 						}
 					} catch (Exception e) {
 						System.out.println(e);
 						e.printStackTrace();
 					}
+
 				}
-				caseProperties.put(++rowNum, rowValue);
+				if (validRowCount != 0) {
+					caseProperties.put(++rowNum, rowValue);
+				} else {
+					break;
+				}
 			}
-			System.out.println(caseProperties);
+			int rowNum1 = 1;
 			Iterator<Entry<Integer, HashMap<String, Object>>> caseProperty = caseProperties.entrySet().iterator();
 			while (caseProperty.hasNext()) {
 				try {
@@ -208,18 +222,76 @@ public class TestClass {
 					pendingCase.save(RefreshMode.REFRESH, null, ModificationIntent.MODIFY);
 					caseId = pendingCase.getId().toString();
 					System.out.println("Case_ID: " + caseId);
+					Row row = sheet.getRow(rowNum1++);
+					Cell cell1 = row.createCell(row.getLastCellNum());
 					if (!caseId.isEmpty()) {
-						caseCount+=1;
-						System.out.println("CaseCount: "+caseCount);
+						caseCount += 1;
+						System.out.println("CaseCount: " + caseCount);
+						cell1.setCellValue("Success");
+					} else {
+						cell1.setCellValue("Failure");
 					}
 				} catch (Exception e) {
 					System.out.println(e);
 					e.printStackTrace();
 				}
 			}
+			InputStream is = null;
+			ByteArrayOutputStream bos = null;
+			try {
+				bos = new ByteArrayOutputStream();
+				workbook.write(bos);
+				byte[] barray = bos.toByteArray();
+				is = new ByteArrayInputStream(barray);
+				String docTitle = doc.get_Name();
+				FolderSet folderSet = doc.get_FoldersFiledIn();
+				Folder folder = null;
+				Iterator<Folder> folderSetIterator = folderSet.iterator();
+				if (folderSetIterator.hasNext()) {
+					folder = folderSetIterator.next();
+				}
+				String folderPath = folder.get_PathName();
+				folderPath += " Response";
+				Folder responseFolder = Factory.Folder.fetchInstance(targetOS, folderPath, null);
+				updateDocument(targetOS, is, doc, docTitle, responseFolder);
 
+			} catch (Exception e) {
+				System.out.println(e);
+				e.printStackTrace();
+			} finally {
+				if (bos != null) {
+					bos.close();
+				}
+				if (is != null) {
+					is.close();
+				}
+				if (stream != null) {
+					stream.close();
+				}
+			}
 		}
+	}
 
+	private void updateDocument(ObjectStore os, InputStream is, Document doc, String docTitle, Folder responseFolder) {
+		// TODO Auto-generated method stub
+		String docClassName = doc.getClassName() + "Response";
+		Document updateDoc = Factory.Document.createInstance(os, docClassName);
+		ContentElementList contentList = Factory.ContentElement.createList();
+		ContentTransfer contentTransfer = Factory.ContentTransfer.createInstance();
+		contentTransfer.setCaptureSource(is);
+		contentTransfer.set_RetrievalName(docTitle + ".xlsx");
+		contentTransfer.set_ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+		contentList.add(contentTransfer);
+
+		updateDoc.set_ContentElements(contentList);
+		updateDoc.checkin(AutoClassify.DO_NOT_AUTO_CLASSIFY, CheckinType.MAJOR_VERSION);
+		Properties p = updateDoc.getProperties();
+		p.putValue("DocumentTitle", docTitle);
+		updateDoc.setUpdateSequenceNumber(null);
+		updateDoc.save(RefreshMode.REFRESH);
+		ReferentialContainmentRelationship rc = responseFolder.file(updateDoc, AutoUniqueName.AUTO_UNIQUE, docTitle,
+				DefineSecurityParentage.DO_NOT_DEFINE_SECURITY_PARENTAGE);
+		rc.save(RefreshMode.REFRESH);
 	}
 
 	private static Object getCharValue(Cell cell) {
