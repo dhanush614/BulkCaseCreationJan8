@@ -15,6 +15,5 @@
 	<classpathentry kind="lib" path="C:/Users/Administrator/Desktop/DocHandler/poi-ooxml-3.9.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Administrator/Desktop/DocHandler/poi-ooxml-schemas-3.9.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Administrator/Desktop/DocHandler/xmlbeans-3.1.0.jar"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

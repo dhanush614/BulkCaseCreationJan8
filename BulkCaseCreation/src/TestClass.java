@@ -167,40 +167,41 @@ public class TestClass {
 					cell1.setCellValue("Status");
 				}
 			}
-			while (rowIterator.hasNext()) {
-				int validRowCount = 0;
-				HashMap<String, Object> rowValue = new HashMap<String, Object>();
-				Row row = rowIterator.next();
-				int colNum = 0;
-				for (int i = 0; i < row.getLastCellNum(); i++) {
-					Cell cell = row.getCell(i, Row.CREATE_NULL_AS_BLANK);
-					try {
-						if (cell == null || cell.getCellType() == Cell.CELL_TYPE_BLANK) {
-							colNum++;
-						} else {
-							if (headers.get(colNum).contains("dateField")) {
-								String symName = headers.get(colNum).replace("dateField", "");
-								if (HSSFDateUtil.isCellDateFormatted(cell)) {
-									Date date = cell.getDateCellValue();
-									rowValue.put(propDescMap.get(symName), date);
+			int rowStart = sheet.getFirstRowNum()+1;
+			int rowEnd = sheet.getLastRowNum();
+			for (int rowNumber = rowStart; rowNumber < rowEnd; rowNumber++) {
+				Row row = sheet.getRow(rowNumber);
+				if (row == null) {
+					break;
+				} else {
+					HashMap<String, Object> rowValue = new HashMap<String, Object>();
+					//Row row = rowIterator.next();
+					int colNum = 0;
+					for (int i = 0; i < row.getLastCellNum(); i++) {
+						Cell cell = row.getCell(i, Row.CREATE_NULL_AS_BLANK);
+						try {
+							if (cell == null || cell.getCellType() == Cell.CELL_TYPE_BLANK) {
+								colNum++;
+							} else {
+								if (headers.get(colNum).contains("dateField")) {
+									String symName = headers.get(colNum).replace("dateField", "");
+									if (HSSFDateUtil.isCellDateFormatted(cell)) {
+										Date date = cell.getDateCellValue();
+										rowValue.put(propDescMap.get(symName), date);
+										colNum++;
+									}
+								} else {
+									rowValue.put(propDescMap.get(headers.get(colNum)), getCharValue(cell));
 									colNum++;
 								}
-							} else {
-								rowValue.put(propDescMap.get(headers.get(colNum)), getCharValue(cell));
-								colNum++;
 							}
-							validRowCount += 1;
+						} catch (Exception e) {
+							System.out.println(e);
+							e.printStackTrace();
 						}
-					} catch (Exception e) {
-						System.out.println(e);
-						e.printStackTrace();
-					}
 
-				}
-				if (validRowCount != 0) {
+					}
 					caseProperties.put(++rowNum, rowValue);
-				} else {
-					break;
 				}
 			}
 			int rowNum1 = 1;
@@ -222,14 +223,20 @@ public class TestClass {
 					pendingCase.save(RefreshMode.REFRESH, null, ModificationIntent.MODIFY);
 					caseId = pendingCase.getId().toString();
 					System.out.println("Case_ID: " + caseId);
-					Row row = sheet.getRow(rowNum1++);
-					Cell cell1 = row.createCell(row.getLastCellNum());
-					if (!caseId.isEmpty()) {
-						caseCount += 1;
-						System.out.println("CaseCount: " + caseCount);
-						cell1.setCellValue("Success");
+					int lastCellNum = sheet.getRow(0).getLastCellNum();
+					Row row = sheet.getRow(rowNum1);
+					if (row == null || row.getLastCellNum() <= 0) {
+						rowNum1++;
 					} else {
-						cell1.setCellValue("Failure");
+						Cell cell1 = row.createCell(lastCellNum-1);
+						if (!caseId.isEmpty()) {
+							caseCount += 1;
+							System.out.println("CaseCount: " + caseCount);
+							cell1.setCellValue("Success");
+						} else {
+							cell1.setCellValue("Failure");
+						}
+						rowNum1++;
 					}
 				} catch (Exception e) {
 					System.out.println(e);
