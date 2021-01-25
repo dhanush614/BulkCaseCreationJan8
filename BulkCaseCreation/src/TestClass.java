@@ -169,7 +169,7 @@ public class TestClass {
 			}
 			int rowStart = sheet.getFirstRowNum()+1;
 			int rowEnd = sheet.getLastRowNum();
-			for (int rowNumber = rowStart; rowNumber < rowEnd; rowNumber++) {
+			for (int rowNumber = rowStart; rowNumber <= rowEnd; rowNumber++) {
 				Row row = sheet.getRow(rowNumber);
 				if (row == null) {
 					break;
