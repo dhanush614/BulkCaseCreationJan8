@@ -76,7 +76,7 @@ public class TestClass {
 			PropertyFilter pf = new PropertyFilter();
 			pf.addIncludeProperty(new FilterElement(null, null, null, PropertyNames.CONTENT_SIZE, null));
 			pf.addIncludeProperty(new FilterElement(null, null, null, PropertyNames.CONTENT_ELEMENTS, null));
-			String folderPath = "/Bulk Case Creation";
+			String folderPath = "/Bulk Case Creation Batch";
 			Folder myFolder = Factory.Folder.fetchInstance(targetOS, folderPath, null);
 			DocumentSet myLoanDocs = myFolder.get_ContainedDocuments();
 			Iterator itr = myLoanDocs.iterator();
